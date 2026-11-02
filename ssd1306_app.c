@@ -1153,7 +1153,7 @@ static void draw_callback(Canvas* canvas, void* ctx) {
 
     switch(app->scene) {
     case SceneMainMenu:
-        draw_menu(canvas, main_menu_items, MAIN_MENU_COUNT, app->cursor, "SSD1306 Test");
+        draw_menu(canvas, main_menu_items, MAIN_MENU_COUNT, app->cursor, "SSD1106 Test");
         break;
 
     case ScenePatterns:
@@ -1938,7 +1938,7 @@ int32_t ssd1306_app_main(void* p) {
     if(app->detected) {
         // show initial test pattern
         ssd1306_clear(&app->oled);
-        ssd1306_string(&app->oled, 16, 4, "SSD1306 Test");
+        ssd1306_string(&app->oled, 16, 4, "SSD1106 Test");
         ssd1306_string(&app->oled, 10, 20, "Ready");
         ssd1306_string(&app->oled, 10, 36, "Use Flipper");
         ssd1306_string(&app->oled, 10, 46, "to navigate");
