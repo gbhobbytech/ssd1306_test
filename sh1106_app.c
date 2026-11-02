@@ -1,4 +1,4 @@
-#include "ssd1306.h"
+#include "sh1106.h"
 #include <gui/gui.h>
 #include <input/input.h>
 #include <furi.h>
@@ -30,7 +30,7 @@ typedef struct {
     int cursor; // menu cursor position
     int scroll_offset; // for scrollable menus
 
-    SSD1306 oled;
+    SH1106 oled;
     bool detected;
 
     // test pattern state
@@ -314,93 +314,93 @@ static const char* weekday_names[] = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", 
 // -- Pattern generators --
 
 static void pattern_all_white(App* app) {
-    ssd1306_fill(&app->oled, 0xFF);
-    ssd1306_flush(&app->oled);
+    sh1106_fill(&app->oled, 0xFF);
+    sh1106_flush(&app->oled);
 }
 
 static void pattern_all_black(App* app) {
-    ssd1306_clear(&app->oled);
-    ssd1306_flush(&app->oled);
+    sh1106_clear(&app->oled);
+    sh1106_flush(&app->oled);
 }
 
 static void pattern_checkerboard(App* app) {
-    for(int p = 0; p < SSD1306_PAGES; p++)
-        for(int x = 0; x < SSD1306_WIDTH; x++)
-            app->oled.buffer[p * SSD1306_WIDTH + x] = ((x + p) & 1) ? 0x55 : 0xAA;
-    ssd1306_flush(&app->oled);
+    for(int p = 0; p < SH1106_PAGES; p++)
+        for(int x = 0; x < SH1106_WIDTH; x++)
+            app->oled.buffer[p * SH1106_WIDTH + x] = ((x + p) & 1) ? 0x55 : 0xAA;
+    sh1106_flush(&app->oled);
 }
 
 static void pattern_h_lines(App* app) {
-    ssd1306_fill(&app->oled, 0x55); // alternating rows within each page
-    ssd1306_flush(&app->oled);
+    sh1106_fill(&app->oled, 0x55); // alternating rows within each page
+    sh1106_flush(&app->oled);
 }
 
 static void pattern_v_lines(App* app) {
-    for(int p = 0; p < SSD1306_PAGES; p++)
-        for(int x = 0; x < SSD1306_WIDTH; x++)
-            app->oled.buffer[p * SSD1306_WIDTH + x] = (x & 1) ? 0xFF : 0x00;
-    ssd1306_flush(&app->oled);
+    for(int p = 0; p < SH1106_PAGES; p++)
+        for(int x = 0; x < SH1106_WIDTH; x++)
+            app->oled.buffer[p * SH1106_WIDTH + x] = (x & 1) ? 0xFF : 0x00;
+    sh1106_flush(&app->oled);
 }
 
 static void pattern_border(App* app) {
-    ssd1306_clear(&app->oled);
-    ssd1306_rect(&app->oled, 0, 0, 128, 64);
-    ssd1306_flush(&app->oled);
+    sh1106_clear(&app->oled);
+    sh1106_rect(&app->oled, 0, 0, 128, 64);
+    sh1106_flush(&app->oled);
 }
 
 static void pattern_zone_test(App* app) {
-    ssd1306_clear(&app->oled);
+    sh1106_clear(&app->oled);
     uint8_t split = app->yellow_bar_height;
     if(split == 0) split = 16; // show 16px marker even on mono for reference
     // fill top zone
-    ssd1306_fill_rect(&app->oled, 0, 0, 128, split);
+    sh1106_fill_rect(&app->oled, 0, 0, 128, split);
     // label zones
-    ssd1306_clear(&app->oled);
-    ssd1306_fill_rect(&app->oled, 0, 0, 128, split);
+    sh1106_clear(&app->oled);
+    sh1106_fill_rect(&app->oled, 0, 0, 128, split);
     // draw boundary line (inverted in the filled area)
     for(int x = 0; x < 128; x += 2)
-        ssd1306_pixel(&app->oled, x, split, true);
+        sh1106_pixel(&app->oled, x, split, true);
     // text labels using inverted pixels in top zone
     if(split >= 16) {
         // clear a text area in the filled zone
         for(int16_t y = 4; y < 11; y++)
             for(int16_t x = 20; x < 108; x++)
-                ssd1306_pixel(&app->oled, x, y, false);
+                sh1106_pixel(&app->oled, x, y, false);
         // write in cleared area (these will be dark-on-light)
-        ssd1306_string(&app->oled, 22, 4, "YELLOW ZONE");
+        sh1106_string(&app->oled, 22, 4, "YELLOW ZONE");
     }
-    ssd1306_string(&app->oled, 22, split + 8, "MAIN ZONE");
-    ssd1306_string(&app->oled, 10, split + 24, "Boundary at row ");
+    sh1106_string(&app->oled, 22, split + 8, "MAIN ZONE");
+    sh1106_string(&app->oled, 10, split + 24, "Boundary at row ");
     char num[4];
     snprintf(num, sizeof(num), "%d", split);
-    ssd1306_string(&app->oled, 106, split + 24, num);
-    ssd1306_flush(&app->oled);
+    sh1106_string(&app->oled, 106, split + 24, num);
+    sh1106_flush(&app->oled);
 }
 
 static void pattern_page_fill(App* app) {
     // fill each page sequentially (useful for identifying page boundaries)
-    for(int p = 0; p < SSD1306_PAGES; p++) {
-        ssd1306_clear(&app->oled);
-        memset(&app->oled.buffer[p * SSD1306_WIDTH], 0xFF, SSD1306_WIDTH);
+    for(int p = 0; p < SH1106_PAGES; p++) {
+        sh1106_clear(&app->oled);
+        memset(&app->oled.buffer[p * SH1106_WIDTH], 0xFF, SH1106_WIDTH);
         // label it
         char label[20];
         snprintf(label, sizeof(label), "Page %d (rows %d-%d)", p, p * 8, p * 8 + 7);
-        ssd1306_string(&app->oled, 4, (p == 3 || p == 4) ? 0 : 28, label);
-        ssd1306_flush(&app->oled);
+        sh1106_string(&app->oled, 4, (p == 3 || p == 4) ? 0 : 28, label);
+        sh1106_flush(&app->oled);
         furi_delay_ms(800);
     }
     // show all pages labeled
-    ssd1306_clear(&app->oled);
-    for(int p = 0; p < SSD1306_PAGES; p++) {
+    sh1106_clear(&app->oled);
+    for(int p = 0; p < SH1106_PAGES; p++) {
         char label[4];
         snprintf(label, sizeof(label), "P%d", p);
-        ssd1306_string(&app->oled, 56, p * 8, label);
+        sh1106_string(&app->oled, 56, p * 8, label);
     }
-    ssd1306_flush(&app->oled);
+    sh1106_flush(&app->oled);
 }
 
 static void pattern_gradient(App* app) {
-    ssd1306_clear(&app->oled);
+    sh1106_clear(&app->oled);
     // dithered gradient: more pixels lit toward the right
     for(int x = 0; x < 128; x++) {
         uint8_t density = (uint8_t)((x * 255) / 127);
@@ -412,51 +412,51 @@ static void pattern_gradient(App* app) {
                 {48, 176, 16, 144},
                 {240, 112, 208, 80},
             };
-            if(density > bayer4[y & 3][x & 3]) ssd1306_pixel(&app->oled, x, y, true);
+            if(density > bayer4[y & 3][x & 3]) sh1106_pixel(&app->oled, x, y, true);
         }
     }
-    ssd1306_flush(&app->oled);
+    sh1106_flush(&app->oled);
 }
 
 static void pattern_shapes(App* app) {
-    ssd1306_clear(&app->oled);
+    sh1106_clear(&app->oled);
 
     // -- Top 16px: title bar --
     // Thin border top and bottom of the header zone
-    ssd1306_line(&app->oled, 0, 0, 127, 0);
-    ssd1306_line(&app->oled, 0, 15, 127, 15);
+    sh1106_line(&app->oled, 0, 0, 127, 0);
+    sh1106_line(&app->oled, 0, 15, 127, 15);
     // Decorative corner marks
-    ssd1306_pixel(&app->oled, 2, 1, true);  ssd1306_pixel(&app->oled, 2, 14, true);
-    ssd1306_pixel(&app->oled, 125, 1, true); ssd1306_pixel(&app->oled, 125, 14, true);
+    sh1106_pixel(&app->oled, 2, 1, true);  sh1106_pixel(&app->oled, 2, 14, true);
+    sh1106_pixel(&app->oled, 125, 1, true); sh1106_pixel(&app->oled, 125, 14, true);
     // Centered title
-    ssd1306_string(&app->oled, 30, 4, "SSD1306  Test");
+    sh1106_string(&app->oled, 30, 4, "SH1106  Test");
 
     // -- Boundary --
-    ssd1306_line(&app->oled, 0, 16, 127, 16);
+    sh1106_line(&app->oled, 0, 16, 127, 16);
 
     // -- Bottom 48px: two-column layout --
     // Left column: geometric composition
-    ssd1306_rect(&app->oled, 4, 20, 50, 41);             // frame
-    ssd1306_circle(&app->oled, 29, 34, 10);               // centered circle
-    ssd1306_fill_rect(&app->oled, 24, 29, 11, 11);        // filled center
-    ssd1306_line(&app->oled, 8, 24, 50, 57);              // accent diagonal
-    ssd1306_pixel(&app->oled, 12, 24, true);               // corner dots
-    ssd1306_pixel(&app->oled, 46, 24, true);
-    ssd1306_pixel(&app->oled, 12, 57, true);
-    ssd1306_pixel(&app->oled, 46, 57, true);
+    sh1106_rect(&app->oled, 4, 20, 50, 41);             // frame
+    sh1106_circle(&app->oled, 29, 34, 10);               // centered circle
+    sh1106_fill_rect(&app->oled, 24, 29, 11, 11);        // filled center
+    sh1106_line(&app->oled, 8, 24, 50, 57);              // accent diagonal
+    sh1106_pixel(&app->oled, 12, 24, true);               // corner dots
+    sh1106_pixel(&app->oled, 46, 24, true);
+    sh1106_pixel(&app->oled, 12, 57, true);
+    sh1106_pixel(&app->oled, 46, 57, true);
 
     // Vertical divider
-    ssd1306_line(&app->oled, 60, 20, 60, 60);
+    sh1106_line(&app->oled, 60, 20, 60, 60);
 
     // Right column: text samples
-    ssd1306_string(&app->oled, 66, 22, "ABCDEFGHIJ");
-    ssd1306_string(&app->oled, 66, 32, "abcdefghij");
-    ssd1306_string(&app->oled, 66, 42, "0123456789");
-    ssd1306_string(&app->oled, 66, 52, "( ) [ ] { }");
+    sh1106_string(&app->oled, 66, 22, "ABCDEFGHIJ");
+    sh1106_string(&app->oled, 66, 32, "abcdefghij");
+    sh1106_string(&app->oled, 66, 42, "0123456789");
+    sh1106_string(&app->oled, 66, 52, "( ) [ ] { }");
     // Small decorative underline
-    ssd1306_line(&app->oled, 66, 60, 124, 60);
+    sh1106_line(&app->oled, 66, 60, 124, 60);
 
-    ssd1306_flush(&app->oled);
+    sh1106_flush(&app->oled);
 }
 
 typedef void (*PatternFunc)(App*);
@@ -548,45 +548,45 @@ static void
 }
 
 static void render_clock_oled(App* app) {
-    SSD1306* d = &app->oled;
+    SH1106* d = &app->oled;
     DateTime dt;
     furi_hal_rtc_get_datetime(&dt);
 
     uint8_t bat_pct = furi_hal_power_get_pct();
     bool charging = furi_hal_power_is_charging();
 
-    ssd1306_clear(d);
+    sh1106_clear(d);
 
     if(app->yellow_bar_height > 0) {
         // Yellow bar: filled background with inverted (dark) text/icons
-        ssd1306_fill_rect(d, 0, 0, 128, 16);
+        sh1106_fill_rect(d, 0, 0, 128, 16);
 
         // battery icon (inverted: clear pixels in filled area)
         // draw outline by clearing, then re-adding body
         for(int16_t y = 3; y < 12; y++)
             for(int16_t x = 2; x < 18; x++)
-                ssd1306_pixel(d, x, y, false);
+                sh1106_pixel(d, x, y, false);
         // re-draw battery outline in cleared area (dark lines on yellow)
-        ssd1306_pixel(d, 2, 4, true);
-        ssd1306_pixel(d, 2, 10, true);
-        ssd1306_pixel(d, 14, 4, true);
-        ssd1306_pixel(d, 14, 10, true);
+        sh1106_pixel(d, 2, 4, true);
+        sh1106_pixel(d, 2, 10, true);
+        sh1106_pixel(d, 14, 4, true);
+        sh1106_pixel(d, 14, 10, true);
         for(int16_t x = 3; x < 14; x++) {
-            ssd1306_pixel(d, x, 3, true);
-            ssd1306_pixel(d, x, 11, true);
+            sh1106_pixel(d, x, 3, true);
+            sh1106_pixel(d, x, 11, true);
         }
         for(int16_t y = 4; y < 11; y++) {
-            ssd1306_pixel(d, 2, y, true);
-            ssd1306_pixel(d, 14, y, true);
+            sh1106_pixel(d, 2, y, true);
+            sh1106_pixel(d, 14, y, true);
         }
-        ssd1306_pixel(d, 15, 6, true);
-        ssd1306_pixel(d, 15, 7, true);
-        ssd1306_pixel(d, 15, 8, true);
+        sh1106_pixel(d, 15, 6, true);
+        sh1106_pixel(d, 15, 7, true);
+        sh1106_pixel(d, 15, 8, true);
         int fill = (bat_pct * 10) / 100;
         if(fill > 0)
             for(int16_t y = 5; y < 10; y++)
                 for(int16_t x = 4; x < 4 + fill; x++)
-                    ssd1306_pixel(d, x, y, true);
+                    sh1106_pixel(d, x, y, true);
 
         // battery percentage text (dark on yellow = clear pixels for text bg)
         char pct_str[6];
@@ -594,8 +594,8 @@ static void render_clock_oled(App* app) {
         // clear area for text, then draw dark chars
         for(int16_t y = 4; y < 12; y++)
             for(int16_t x = 18; x < 42; x++)
-                ssd1306_pixel(d, x, y, false);
-        ssd1306_string(d, 19, 4, pct_str);
+                sh1106_pixel(d, x, y, false);
+        sh1106_string(d, 19, 4, pct_str);
         // invert the text chars (make them dark-on-yellow)
         // Actually: text was drawn as lit pixels in a cleared area,
         // so on yellow bar they appear as light text on dark cutout. Perfect.
@@ -603,8 +603,8 @@ static void render_clock_oled(App* app) {
         if(charging) {
             for(int16_t y = 4; y < 12; y++)
                 for(int16_t x = 40; x < 48; x++)
-                    ssd1306_pixel(d, x, y, false);
-            ssd1306_char(d, 41, 4, '+');
+                    sh1106_pixel(d, x, y, false);
+            sh1106_char(d, 41, 4, '+');
         }
 
         // day of week (centered)
@@ -613,8 +613,8 @@ static void render_clock_oled(App* app) {
         int16_t dow_x = 55;
         for(int16_t y = 4; y < 12; y++)
             for(int16_t x = dow_x - 2; x < dow_x + 20; x++)
-                ssd1306_pixel(d, x, y, false);
-        ssd1306_string(d, dow_x, 4, dow);
+                sh1106_pixel(d, x, y, false);
+        sh1106_string(d, dow_x, 4, dow);
 
         // date (right side)
         char date_str[12];
@@ -622,26 +622,26 @@ static void render_clock_oled(App* app) {
         int16_t date_x = 80;
         for(int16_t y = 4; y < 12; y++)
             for(int16_t x = date_x - 2; x < 128; x++)
-                ssd1306_pixel(d, x, y, false);
-        ssd1306_string(d, date_x, 4, date_str);
+                sh1106_pixel(d, x, y, false);
+        sh1106_string(d, date_x, 4, date_str);
 
     } else {
         // Mono display: thin status line at top with no fill
-        ssd1306_battery_icon(d, 2, 2, bat_pct, charging);
+        sh1106_battery_icon(d, 2, 2, bat_pct, charging);
 
         char pct_str[6];
         snprintf(pct_str, sizeof(pct_str), "%d%%", bat_pct);
-        ssd1306_string(d, 20, 4, pct_str);
+        sh1106_string(d, 20, 4, pct_str);
 
         const char* dow = (dt.weekday >= 1 && dt.weekday <= 7) ? weekday_names[dt.weekday - 1] :
                                                                  "???";
-        ssd1306_string(d, 50, 4, dow);
+        sh1106_string(d, 50, 4, dow);
 
         char date_str[12];
         snprintf(date_str, sizeof(date_str), "%02d/%02d/%02d", dt.month, dt.day, dt.year % 100);
-        ssd1306_string(d, 80, 4, date_str);
+        sh1106_string(d, 80, 4, date_str);
 
-        ssd1306_line(d, 0, 13, 127, 13);
+        sh1106_line(d, 0, 13, 127, 13);
     }
 
     // Big clock: HH:MM in the main area
@@ -655,35 +655,35 @@ static void render_clock_oled(App* app) {
     uint8_t m10 = dt.minute / 10;
     uint8_t m1 = dt.minute % 10;
 
-    ssd1306_big_digit(d, cx, cy, h10);
-    ssd1306_big_digit(d, cx + 22, cy, h1);
-    ssd1306_big_colon(d, cx + 43, cy, (dt.second & 1) == 0); // blink every second
-    ssd1306_big_digit(d, cx + 50, cy, m10);
-    ssd1306_big_digit(d, cx + 72, cy, m1);
+    sh1106_big_digit(d, cx, cy, h10);
+    sh1106_big_digit(d, cx + 22, cy, h1);
+    sh1106_big_colon(d, cx + 43, cy, (dt.second & 1) == 0); // blink every second
+    sh1106_big_digit(d, cx + 50, cy, m10);
+    sh1106_big_digit(d, cx + 72, cy, m1);
 
     // Seconds in small font, bottom right of the clock
     char sec_str[8];
     snprintf(sec_str, sizeof(sec_str), ":%02d", dt.second);
-    ssd1306_string(d, cx + 93, cy + 20, sec_str);
+    sh1106_string(d, cx + 93, cy + 20, sec_str);
 
     // Device name at the bottom
     const char* name = furi_hal_version_get_name_ptr();
     if(name) {
         int16_t name_x = 64 - (int16_t)((strlen(name) * 6) / 2);
-        ssd1306_string(d, name_x, 56, name);
+        sh1106_string(d, name_x, 56, name);
     }
 
-    ssd1306_flush(d);
+    sh1106_flush(d);
     app->last_second = dt.second;
 }
 
 // -- Botanical Obligation: Drawing helpers --
 
-static void draw_pot(SSD1306* d, int cx, int rotation) {
+static void draw_pot(SH1106* d, int cx, int rotation) {
     // Pot rim -- tilts with rotation
     int rim_offset = rotation / 2; // rim shifts slightly less than body
-    ssd1306_fill_rect(d, cx - 12 + rim_offset, 47, 24, 3);
-    ssd1306_line(d, cx - 12 + rim_offset, 47, cx + 12 + rim_offset, 47);
+    sh1106_fill_rect(d, cx - 12 + rim_offset, 47, 24, 3);
+    sh1106_line(d, cx - 12 + rim_offset, 47, cx + 12 + rim_offset, 47);
 
     // Pot body -- trapezoid with tilt based on rotation
     // Left and right sides shift opposite directions to create tilt
@@ -691,17 +691,17 @@ static void draw_pot(SSD1306* d, int cx, int rotation) {
         int w = 12 - (y - 50) * 3 / 9;
         // Base shifts more than top (tilt pivot at rim)
         int tilt = rotation * (y - 47) / 6;
-        ssd1306_line(d, cx - w + tilt, y, cx + w + tilt, y);
+        sh1106_line(d, cx - w + tilt, y, cx + w + tilt, y);
     }
 
     // Soil surface -- follows rim tilt
-    ssd1306_line(d, cx - 11 + rim_offset, 51, cx + 11 + rim_offset, 51);
+    sh1106_line(d, cx - 11 + rim_offset, 51, cx + 11 + rim_offset, 51);
 
     // Soil texture
     for(int i = 0; i < 6; i++) {
         int sx = cx - 8 + i * 3 + rim_offset;
-        ssd1306_pixel(d, sx, 53, true);
-        ssd1306_pixel(d, sx + 1, 52, true);
+        sh1106_pixel(d, sx, 53, true);
+        sh1106_pixel(d, sx + 1, 52, true);
     }
 
     // Shadow on ground opposite to tilt direction
@@ -710,25 +710,25 @@ static void draw_pot(SSD1306* d, int cx, int rotation) {
         for(int w = 0; w < abs(rotation) + 2; w++) {
             int sx = cx + shadow_dir * (w + 8);
             if(sx >= 0 && sx < 128) {
-                ssd1306_pixel(d, sx, 60, true);
-                if(w < abs(rotation)) ssd1306_pixel(d, sx, 59, true);
+                sh1106_pixel(d, sx, 60, true);
+                if(w < abs(rotation)) sh1106_pixel(d, sx, 59, true);
             }
         }
     }
 }
 
-static void draw_grass(SSD1306* d) {
+static void draw_grass(SH1106* d) {
     // Ground line
-    ssd1306_line(d, 0, 60, 127, 60);
+    sh1106_line(d, 0, 60, 127, 60);
     // Grass tufts
     for(int x = 2; x < 126; x += 10) {
-        ssd1306_pixel(d, x, 59, true);
-        ssd1306_pixel(d, x + 1, 58, true);
-        ssd1306_pixel(d, x + 2, 59, true);
+        sh1106_pixel(d, x, 59, true);
+        sh1106_pixel(d, x + 1, 58, true);
+        sh1106_pixel(d, x + 2, 59, true);
     }
 }
 
-static void draw_leaf(SSD1306* d, int cx, int cy, int size, bool left_side, int droop, bool sunburned) {
+static void draw_leaf(SH1106* d, int cx, int cy, int size, bool left_side, int droop, bool sunburned) {
     // Draw a filled teardrop leaf
     // left_side: true = points left, false = points right
     // droop: 0-3, adds downward sag
@@ -747,23 +747,23 @@ static void draw_leaf(SSD1306* d, int cx, int cy, int size, bool left_side, int 
             int lx = cx + dir * w;
             int rx = cx - dir * w;
             if(lx >= 0 && lx < 128 && y >= 0 && y < 64)
-                ssd1306_pixel(d, lx, y, true);
+                sh1106_pixel(d, lx, y, true);
             if(w > 0 && rx >= 0 && rx < 128)
-                ssd1306_pixel(d, rx, y, true);
+                sh1106_pixel(d, rx, y, true);
         }
     }
     // Center vein
     if(!sunburned || size > 4) {
         for(int i = 0; i < size; i++) {
             int vy = cy - size + i + droop + 1;
-            if(vy >= 0 && vy < 64) ssd1306_pixel(d, cx, vy, true);
+            if(vy >= 0 && vy < 64) sh1106_pixel(d, cx, vy, true);
         }
     }
 }
 
-static void draw_flower(SSD1306* d, int cx, int cy, int size) {
+static void draw_flower(SH1106* d, int cx, int cy, int size) {
     // Center
-    ssd1306_fill_rect(d, cx - 1, cy - 1, 3, 3);
+    sh1106_fill_rect(d, cx - 1, cy - 1, 3, 3);
 
     // Petals at 45-degree increments
     for(int a = 0; a < 8; a++) {
@@ -771,65 +771,65 @@ static void draw_flower(SSD1306* d, int cx, int cy, int size) {
         int px = cx + (int)(size * 1.2f * cosf(rad));
         int py = cy - (int)(size * 1.2f * sinf(rad));
         if(px >= 0 && px < 128 && py >= 0 && py < 64) {
-            ssd1306_fill_rect(d, px - 1, py - 1, 3, 3);
+            sh1106_fill_rect(d, px - 1, py - 1, 3, 3);
         }
     }
 }
 
-static void draw_dead_scene(SSD1306* d, App* app) {
+static void draw_dead_scene(SH1106* d, App* app) {
     // Yellow bar header
     if(app->yellow_bar_height > 0) {
-        ssd1306_fill_rect(d, 0, 0, 128, 16);
+        sh1106_fill_rect(d, 0, 0, 128, 16);
         for(int16_t y = 4; y < 12; y++)
             for(int16_t x = 0; x < 128; x++)
-                ssd1306_pixel(d, x, y, false);
+                sh1106_pixel(d, x, y, false);
     }
-    ssd1306_string(d, 2, 4, "R.I.P. Spiteful Ficus");
+    sh1106_string(d, 2, 4, "R.I.P. Spiteful Ficus");
 
     const char* insult = app->plant_is_monty_insult ?
                              monty_insults[app->plant_insult_idx % NUM_MONTY_INSULTS] :
                              death_insults[app->plant_insult_idx % NUM_DEATH_INSULTS];
-    ssd1306_string(d, 2, 22, insult);
+    sh1106_string(d, 2, 22, insult);
 
     uint32_t now = furi_hal_rtc_get_timestamp();
     uint32_t remaining = (app->plant_dead_until > now) ? (app->plant_dead_until - now) : 0;
     char time_str[24];
     snprintf(time_str, sizeof(time_str), "%lum %lus", remaining / 60, remaining % 60);
-    ssd1306_string(d, 2, 34, time_str);
+    sh1106_string(d, 2, 34, time_str);
 
     // Gravestone
     int gx = 100;
-    ssd1306_fill_rect(d, gx - 1, 38, 2, 26); // base pillar
-    ssd1306_fill_rect(d, gx - 6, 38, 12, 2); // base
-    ssd1306_fill_rect(d, gx - 8, 36, 16, 3); // top slab
-    ssd1306_fill_rect(d, gx - 6, 34, 12, 3); // rounded top
-    ssd1306_pixel(d, gx - 4, 33, true);
-    ssd1306_pixel(d, gx + 4, 33, true);
+    sh1106_fill_rect(d, gx - 1, 38, 2, 26); // base pillar
+    sh1106_fill_rect(d, gx - 6, 38, 12, 2); // base
+    sh1106_fill_rect(d, gx - 8, 36, 16, 3); // top slab
+    sh1106_fill_rect(d, gx - 6, 34, 12, 3); // rounded top
+    sh1106_pixel(d, gx - 4, 33, true);
+    sh1106_pixel(d, gx + 4, 33, true);
     // R.I.P. on gravestone
-    ssd1306_pixel(d, gx - 2, 37, true);
-    ssd1306_pixel(d, gx + 2, 37, true);
+    sh1106_pixel(d, gx - 2, 37, true);
+    sh1106_pixel(d, gx + 2, 37, true);
 
     // Wilted plant next to gravestone
     int wx = 55;
     draw_pot(d, wx, 0);
     // Bent, broken stem
-    ssd1306_line(d, wx, 48, wx - 2, 38);
-    ssd1306_line(d, wx - 2, 38, wx + 4, 28);
+    sh1106_line(d, wx, 48, wx - 2, 38);
+    sh1106_line(d, wx - 2, 38, wx + 4, 28);
     // Dropped leaves on ground
     for(int i = 0; i < 5; i++) {
         int lx = wx - 5 + i * 3;
-        ssd1306_pixel(d, lx, 59, true);
-        ssd1306_pixel(d, lx - 1, 60, true);
+        sh1106_pixel(d, lx, 59, true);
+        sh1106_pixel(d, lx - 1, 60, true);
     }
 }
 
 static void render_plant_oled(App* app) {
-    SSD1306* d = &app->oled;
-    ssd1306_clear(d);
+    SH1106* d = &app->oled;
+    sh1106_clear(d);
 
     if(app->plant_is_dead) {
         draw_dead_scene(d, app);
-        ssd1306_flush(d);
+        sh1106_flush(d);
         return;
     }
 
@@ -857,36 +857,36 @@ static void render_plant_oled(App* app) {
     int icon_x = 2;
     if(sunburned) {
         // Bright sun symbol
-        ssd1306_fill_rect(d, icon_x + 2, 2, 3, 3);
-        ssd1306_pixel(d, icon_x + 1, 1, true);
-        ssd1306_pixel(d, icon_x + 5, 1, true);
-        ssd1306_pixel(d, icon_x, 3, true);
-        ssd1306_pixel(d, icon_x + 6, 3, true);
-        ssd1306_pixel(d, icon_x + 1, 5, true);
-        ssd1306_pixel(d, icon_x + 5, 5, true);
+        sh1106_fill_rect(d, icon_x + 2, 2, 3, 3);
+        sh1106_pixel(d, icon_x + 1, 1, true);
+        sh1106_pixel(d, icon_x + 5, 1, true);
+        sh1106_pixel(d, icon_x, 3, true);
+        sh1106_pixel(d, icon_x + 6, 3, true);
+        sh1106_pixel(d, icon_x + 1, 5, true);
+        sh1106_pixel(d, icon_x + 5, 5, true);
     } else if(light_starved) {
         // Crescent moon (darkness)
-        ssd1306_circle(d, icon_x + 3, 4, 3);
-        ssd1306_fill_rect(d, icon_x + 1, 1, 3, 6);
-        ssd1306_circle(d, icon_x + 3, 4, 3);
+        sh1106_circle(d, icon_x + 3, 4, 3);
+        sh1106_fill_rect(d, icon_x + 1, 1, 3, 6);
+        sh1106_circle(d, icon_x + 3, 4, 3);
     }
     // Water indicator
     if(app->plant_water < 15) {
         // Drop symbol
-        ssd1306_pixel(d, 12, 1, true);
-        ssd1306_pixel(d, 11, 2, true);
-        ssd1306_pixel(d, 13, 2, true);
-        ssd1306_pixel(d, 11, 3, true);
-        ssd1306_pixel(d, 12, 3, true);
-        ssd1306_pixel(d, 13, 3, true);
+        sh1106_pixel(d, 12, 1, true);
+        sh1106_pixel(d, 11, 2, true);
+        sh1106_pixel(d, 13, 2, true);
+        sh1106_pixel(d, 11, 3, true);
+        sh1106_pixel(d, 12, 3, true);
+        sh1106_pixel(d, 13, 3, true);
     } else if(overwatered) {
         // Wave symbol
-        ssd1306_pixel(d, 11, 1, true);
-        ssd1306_pixel(d, 13, 1, true);
-        ssd1306_pixel(d, 12, 2, true);
-        ssd1306_pixel(d, 11, 3, true);
-        ssd1306_pixel(d, 13, 3, true);
-        ssd1306_pixel(d, 12, 4, true);
+        sh1106_pixel(d, 11, 1, true);
+        sh1106_pixel(d, 13, 1, true);
+        sh1106_pixel(d, 12, 2, true);
+        sh1106_pixel(d, 11, 3, true);
+        sh1106_pixel(d, 13, 3, true);
+        sh1106_pixel(d, 12, 4, true);
     }
 
     // Rotation direction arrow at top of screen
@@ -895,17 +895,17 @@ static void render_plant_oled(App* app) {
         if(app->plant_rotation < 0) {
             // Arrow pointing left
             for(int a = 0; a < 4; a++) {
-                ssd1306_pixel(d, 122 + a, arrow_y + 1 - a, true);
-                ssd1306_pixel(d, 122 + a, arrow_y + 1 + a, true);
+                sh1106_pixel(d, 122 + a, arrow_y + 1 - a, true);
+                sh1106_pixel(d, 122 + a, arrow_y + 1 + a, true);
             }
-            ssd1306_line(d, 122, arrow_y + 1, 126, arrow_y + 1);
+            sh1106_line(d, 122, arrow_y + 1, 126, arrow_y + 1);
         } else {
             // Arrow pointing right
             for(int a = 0; a < 4; a++) {
-                ssd1306_pixel(d, 122 + a, arrow_y + 1 - (3 - a), true);
-                ssd1306_pixel(d, 122 + a, arrow_y + 1 + (3 - a), true);
+                sh1106_pixel(d, 122 + a, arrow_y + 1 - (3 - a), true);
+                sh1106_pixel(d, 122 + a, arrow_y + 1 + (3 - a), true);
             }
-            ssd1306_line(d, 126, arrow_y + 1, 122, arrow_y + 1);
+            sh1106_line(d, 126, arrow_y + 1, 122, arrow_y + 1);
         }
     }
 
@@ -945,9 +945,9 @@ static void render_plant_oled(App* app) {
         // Bottom to middle
         int mx = stem_mid_x + ox;
         int my = stem_base_y - stem_height / 2;
-        ssd1306_line(d, px + ox, stem_bottom_y, mx, my);
+        sh1106_line(d, px + ox, stem_bottom_y, mx, my);
         // Middle to top
-        ssd1306_line(d, mx, my, stem_top_x + ox, stem_top_y);
+        sh1106_line(d, mx, my, stem_top_x + ox, stem_top_y);
     }
 
     // Branch points and leaf positions along the stem
@@ -991,35 +991,35 @@ static void render_plant_oled(App* app) {
         }
     }
 
-    ssd1306_flush(d);
+    sh1106_flush(d);
 }
 
 // -- I2C Scanner --
 
 static void render_i2c_scan_oled(App* app) {
-    SSD1306* d = &app->oled;
-    ssd1306_clear(d);
+    SH1106* d = &app->oled;
+    sh1106_clear(d);
 
     if(!app->i2c_scan_done) {
-        ssd1306_string(d, 10, 4, "Scanning I2C bus...");
+        sh1106_string(d, 10, 4, "Scanning I2C bus...");
         char prog[20];
         snprintf(prog, sizeof(prog), "Addr: 0x%02X", app->i2c_scan_progress);
-        ssd1306_string(d, 10, 20, prog);
+        sh1106_string(d, 10, 20, prog);
         // progress bar
-        ssd1306_rect(d, 8, 36, 112, 8);
+        sh1106_rect(d, 8, 36, 112, 8);
         int fill = (app->i2c_scan_progress * 110) / 127;
-        if(fill > 0) ssd1306_fill_rect(d, 9, 37, fill, 6);
-        ssd1306_string(d, 10, 52, "Please wait...");
+        if(fill > 0) sh1106_fill_rect(d, 9, 37, fill, 6);
+        sh1106_string(d, 10, 52, "Please wait...");
     } else {
-        ssd1306_string(d, 2, 4, "I2C Scan Results");
-        ssd1306_line(d, 0, 13, 127, 13);
+        sh1106_string(d, 2, 4, "I2C Scan Results");
+        sh1106_line(d, 0, 13, 127, 13);
 
         if(app->i2c_scan_found_count == 0) {
-            ssd1306_string(d, 20, 28, "No devices found");
+            sh1106_string(d, 20, 28, "No devices found");
         } else {
             char count_str[30];
             snprintf(count_str, sizeof(count_str), "Found: %d device(s)", app->i2c_scan_found_count);
-            ssd1306_string(d, 2, 16, count_str);
+            sh1106_string(d, 2, 16, count_str);
 
             // display found addresses in a compact grid
             uint8_t col = 0;
@@ -1031,22 +1031,22 @@ static void render_i2c_scan_oled(App* app) {
                     if(y < 56) {
                         char astr[8];
                         snprintf(astr, sizeof(astr), "0x%02X", addr);
-                        ssd1306_string(d, x, y, astr);
+                        sh1106_string(d, x, y, astr);
                     }
                     col++;
                     if(col % 5 == 0) row++;
                 }
             }
         }
-        ssd1306_string(d, 2, 56, "OK: rescan  BACK: exit");
+        sh1106_string(d, 2, 56, "OK: rescan  BACK: exit");
     }
-    ssd1306_flush(d);
+    sh1106_flush(d);
 }
 
 // -- FPS Benchmark --
 
 static void run_benchmark(App* app) {
-    SSD1306* d = &app->oled;
+    SH1106* d = &app->oled;
     uint32_t start = furi_get_tick();
     uint32_t count = 0;
     uint32_t deadline = start + 5000; // 5 seconds
@@ -1054,8 +1054,8 @@ static void run_benchmark(App* app) {
 
     while(furi_get_tick() < deadline) {
         pattern++;
-        ssd1306_fill(d, pattern);
-        ssd1306_flush(d);
+        sh1106_fill(d, pattern);
+        sh1106_flush(d);
         count++;
     }
 
@@ -1065,21 +1065,21 @@ static void run_benchmark(App* app) {
 }
 
 static void render_benchmark_oled(App* app) {
-    SSD1306* d = &app->oled;
-    ssd1306_clear(d);
+    SH1106* d = &app->oled;
+    sh1106_clear(d);
 
-    ssd1306_string(d, 10, 4, "FPS Benchmark");
+    sh1106_string(d, 10, 4, "FPS Benchmark");
 
     if(!app->bench_done) {
-        ssd1306_string(d, 10, 28, "Running...");
-        ssd1306_string(d, 4, 44, "Measuring flush rate");
+        sh1106_string(d, 10, 28, "Running...");
+        sh1106_string(d, 4, 44, "Measuring flush rate");
     } else {
-        ssd1306_line(d, 0, 13, 127, 13);
+        sh1106_line(d, 0, 13, 127, 13);
         char result[32];
         snprintf(result, sizeof(result), "%.1f frames/sec", (double)app->bench_fps);
-        ssd1306_string(d, 14, 22, result);
-        ssd1306_string(d, 2, 36, "Full-screen flushes");
-        ssd1306_string(d, 2, 46, "via I2C bus");
+        sh1106_string(d, 14, 22, result);
+        sh1106_string(d, 2, 36, "Full-screen flushes");
+        sh1106_string(d, 2, 46, "via I2C bus");
 
         // rating
         const char* rating;
@@ -1087,41 +1087,41 @@ static void render_benchmark_oled(App* app) {
         else if(app->bench_fps >= 50) rating = "Good";
         else if(app->bench_fps >= 25) rating = "Acceptable";
         else rating = "Slow module";
-        ssd1306_string(d, 28, 56, rating);
+        sh1106_string(d, 28, 56, rating);
     }
-    ssd1306_flush(d);
+    sh1106_flush(d);
 }
 
 // -- Pixel Walk / Marching Ants --
 
 static void render_pixel_walk_oled(App* app) {
-    SSD1306* d = &app->oled;
+    SH1106* d = &app->oled;
     uint16_t step = app->walk_step;
     uint8_t mode = app->walk_mode;
 
-    ssd1306_clear(d);
+    sh1106_clear(d);
 
     switch(mode) {
     case 0: { // single pixel
         uint16_t x = step % 128;
         uint16_t y = (step / 128) % 64;
-        ssd1306_pixel(d, x, y, true);
+        sh1106_pixel(d, x, y, true);
         break;
     }
     case 1: { // vertical line scanning horizontally
         uint16_t x = step % 128;
-        ssd1306_line(d, x, 0, x, 63);
+        sh1106_line(d, x, 0, x, 63);
         break;
     }
     case 2: { // horizontal line scanning vertically
         uint16_t y = step % 64;
-        ssd1306_line(d, 0, y, 127, y);
+        sh1106_line(d, 0, y, 127, y);
         break;
     }
     case 3: { // 2x2 block
         uint16_t x = step % 127;
         uint16_t y = (step / 127) % 63;
-        ssd1306_fill_rect(d, x, y, 2, 2);
+        sh1106_fill_rect(d, x, y, 2, 2);
         break;
     }
     }
@@ -1130,9 +1130,9 @@ static void render_pixel_walk_oled(App* app) {
     const char* mode_names[] = {"Pixel", "V-Line", "H-Line", "2x2 Block"};
     char info[32];
     snprintf(info, sizeof(info), "%s  step:%d", mode_names[mode], step);
-    ssd1306_string(d, 2, 56, info);
+    sh1106_string(d, 2, 56, info);
 
-    ssd1306_flush(d);
+    sh1106_flush(d);
 }
 
 static void draw_callback(Canvas* canvas, void* ctx) {
@@ -1142,7 +1142,7 @@ static void draw_callback(Canvas* canvas, void* ctx) {
     if(!app->detected) {
         canvas_clear(canvas);
         canvas_set_font(canvas, FontPrimary);
-        canvas_draw_str_aligned(canvas, 64, 20, AlignCenter, AlignCenter, "No SSD1306 Found");
+        canvas_draw_str_aligned(canvas, 64, 20, AlignCenter, AlignCenter, "No SH1106 Found");
         canvas_set_font(canvas, FontSecondary);
         canvas_draw_str_aligned(canvas, 64, 36, AlignCenter, AlignCenter, "Check wiring:");
         canvas_draw_str_aligned(canvas, 64, 48, AlignCenter, AlignCenter, "SDA=C1(15) SCL=C0(16)");
@@ -1270,7 +1270,7 @@ static void draw_callback(Canvas* canvas, void* ctx) {
         snprintf(line, sizeof(line), "Address: 0x%02X", app->detected_addr);
         canvas_draw_str(canvas, 6, 28, line);
 
-        bool alive = ssd1306_detect(app->oled.i2c_addr);
+        bool alive = sh1106_detect(app->oled.i2c_addr);
         snprintf(line, sizeof(line), "Status: %s", alive ? "Connected" : "Lost!");
         canvas_draw_str(canvas, 6, 40, line);
 
@@ -1664,14 +1664,14 @@ static void handle_brightness(App* app, InputEvent* ev) {
             app->brightness -= 5;
         else
             app->brightness = 0;
-        ssd1306_set_contrast(&app->oled, app->brightness);
+        sh1106_set_contrast(&app->oled, app->brightness);
         break;
     case InputKeyRight:
         if(app->brightness <= 250)
             app->brightness += 5;
         else
             app->brightness = 255;
-        ssd1306_set_contrast(&app->oled, app->brightness);
+        sh1106_set_contrast(&app->oled, app->brightness);
         break;
     case InputKeyBack:
         app->scene = SceneMainMenu;
@@ -1684,8 +1684,8 @@ static void handle_brightness(App* app, InputEvent* ev) {
 
 static void sh1106_set_effect_mode(App* app, uint8_t mode) {
     // Restore the normal state before changing modes.
-    ssd1306_set_contrast(&app->oled, app->brightness);
-    ssd1306_power(&app->oled, !app->cmd_power);
+    sh1106_set_contrast(&app->oled, app->brightness);
+    sh1106_power(&app->oled, !app->cmd_power);
 
     app->cmd_fade_mode = mode;
     app->fade_last_tick = furi_get_tick();
@@ -1740,14 +1740,14 @@ static void sh1106_update_effect(App* app) {
             ((uint16_t)app->brightness *
              app->fade_step) / 20;
 
-        ssd1306_set_contrast(&app->oled, contrast);
+        sh1106_set_contrast(&app->oled, contrast);
 
     } else {
         // Toggle visibility through the SH1106
         // display on/off command.
         app->blink_visible = !app->blink_visible;
 
-        ssd1306_power(
+        sh1106_power(
             &app->oled, app->blink_visible);
     }
 }
@@ -1765,24 +1765,24 @@ static void handle_commands(App* app, InputEvent* ev) {
         switch(app->cursor) {
         case 0:
             app->cmd_invert = !app->cmd_invert;
-            ssd1306_set_invert(&app->oled, app->cmd_invert);
+            sh1106_set_invert(&app->oled, app->cmd_invert);
             break;
         case 1:
             app->cmd_flip_h = !app->cmd_flip_h;
-            ssd1306_set_flip_h(&app->oled, app->cmd_flip_h);
+            sh1106_set_flip_h(&app->oled, app->cmd_flip_h);
             break;
         case 2:
             app->cmd_flip_v = !app->cmd_flip_v;
-            ssd1306_set_flip_v(&app->oled, app->cmd_flip_v);
+            sh1106_set_flip_v(&app->oled, app->cmd_flip_v);
             break;
         case 3:
             app->cmd_all_on = !app->cmd_all_on;
-            ssd1306_set_all_on(&app->oled, app->cmd_all_on);
+            sh1106_set_all_on(&app->oled, app->cmd_all_on);
             break;
         case 4:
             sh1106_set_effect_mode(app, 0);
             app->cmd_power = !app->cmd_power;
-            ssd1306_power(&app->oled, !app->cmd_power);
+            sh1106_power(&app->oled, !app->cmd_power);
             break;
         case 5:
             app->yellow_bar_height = (app->yellow_bar_height == 0) ? YELLOW_BAR_16 :
@@ -1790,7 +1790,7 @@ static void handle_commands(App* app, InputEvent* ev) {
             break;
         case 6:
             app->cmd_start_line = (app->cmd_start_line + 8) & 0x3F;
-            ssd1306_set_start_line(&app->oled, app->cmd_start_line);
+            sh1106_set_start_line(&app->oled, app->cmd_start_line);
             break;
         case 7:
             sh1106_set_effect_mode(
@@ -1806,7 +1806,7 @@ static void handle_commands(App* app, InputEvent* ev) {
         else if(app->cursor == 7 && app->cmd_fade_mode > 0)
             app->cmd_fade_mode--;
         if(app->cursor == 6)
-            ssd1306_set_start_line(&app->oled, app->cmd_start_line);
+            sh1106_set_start_line(&app->oled, app->cmd_start_line);
         else if(app->cursor == 7)
             sh1106_set_effect_mode(app, app->cmd_fade_mode);
         break;
@@ -1816,7 +1816,7 @@ static void handle_commands(App* app, InputEvent* ev) {
         else if(app->cursor == 7)
             app->cmd_fade_mode = (app->cmd_fade_mode + 1) % 5;
         if(app->cursor == 6)
-            ssd1306_set_start_line(&app->oled, app->cmd_start_line);
+            sh1106_set_start_line(&app->oled, app->cmd_start_line);
         else if(app->cursor == 7)
             sh1106_set_effect_mode(app, app->cmd_fade_mode);
         break;
@@ -1912,7 +1912,7 @@ static void handle_clock(App* app, InputEvent* ev) {
 
 // -- Entry point --
 
-int32_t ssd1306_app_main(void* p) {
+int32_t sh1106_app_main(void* p) {
     UNUSED(p);
 
     App* app = malloc(sizeof(App));
@@ -1927,23 +1927,23 @@ int32_t ssd1306_app_main(void* p) {
     load_plant_state(app);
 
     // Try both addresses
-    if(ssd1306_detect(SSD1306_ADDR_3C)) {
+    if(sh1106_detect(SH1106_ADDR_3C)) {
         app->detected_addr = 0x3C;
-        app->detected = ssd1306_init(&app->oled, SSD1306_ADDR_3C);
-    } else if(ssd1306_detect(SSD1306_ADDR_3D)) {
+        app->detected = sh1106_init(&app->oled, SH1106_ADDR_3C);
+    } else if(sh1106_detect(SH1106_ADDR_3D)) {
         app->detected_addr = 0x3D;
-        app->detected = ssd1306_init(&app->oled, SSD1306_ADDR_3D);
+        app->detected = sh1106_init(&app->oled, SH1106_ADDR_3D);
     }
 
     if(app->detected) {
         // show initial test pattern
-        ssd1306_clear(&app->oled);
-        ssd1306_string(&app->oled, 16, 4, "SSD1106 Test");
-        ssd1306_string(&app->oled, 10, 20, "Ready");
-        ssd1306_string(&app->oled, 10, 36, "Use Flipper");
-        ssd1306_string(&app->oled, 10, 46, "to navigate");
-        ssd1306_rect(&app->oled, 0, 0, 128, 64);
-        ssd1306_flush(&app->oled);
+        sh1106_clear(&app->oled);
+        sh1106_string(&app->oled, 16, 4, "SSD1106 Test");
+        sh1106_string(&app->oled, 10, 20, "Ready");
+        sh1106_string(&app->oled, 10, 36, "Use Flipper");
+        sh1106_string(&app->oled, 10, 46, "to navigate");
+        sh1106_rect(&app->oled, 0, 0, 128, 64);
+        sh1106_flush(&app->oled);
     }
 
     FuriMessageQueue* queue = furi_message_queue_alloc(8, sizeof(InputEvent));
@@ -1965,12 +1965,12 @@ int32_t ssd1306_app_main(void* p) {
                     if(ev.key == InputKeyBack) {
                         app->running = false;
                     } else {
-                        if(ssd1306_detect(SSD1306_ADDR_3C)) {
+                        if(sh1106_detect(SH1106_ADDR_3C)) {
                             app->detected_addr = 0x3C;
-                            app->detected = ssd1306_init(&app->oled, SSD1306_ADDR_3C);
-                        } else if(ssd1306_detect(SSD1306_ADDR_3D)) {
+                            app->detected = sh1106_init(&app->oled, SH1106_ADDR_3C);
+                        } else if(sh1106_detect(SH1106_ADDR_3D)) {
                             app->detected_addr = 0x3D;
-                            app->detected = ssd1306_init(&app->oled, SSD1306_ADDR_3D);
+                            app->detected = sh1106_init(&app->oled, SH1106_ADDR_3D);
                         }
                     }
                 }
@@ -2036,7 +2036,7 @@ int32_t ssd1306_app_main(void* p) {
                     furi_mutex_acquire(
                         app->mutex, FuriWaitForever);
 
-                    ssd1306_scroll_step(
+                    sh1106_scroll_step(
                         &app->oled, app->scroll_left);
 
                     app->scroll_last_tick = now;
@@ -2165,7 +2165,7 @@ int32_t ssd1306_app_main(void* p) {
 
             if(app->i2c_scan_progress < 128) {
                 uint8_t i2c_addr = app->i2c_scan_progress << 1;
-                if(ssd1306_detect(i2c_addr)) {
+                if(sh1106_detect(i2c_addr)) {
                     app->i2c_scan_found[app->i2c_scan_progress] = true;
                     app->i2c_scan_found_count++;
                 }
@@ -2228,10 +2228,10 @@ int32_t ssd1306_app_main(void* p) {
 
     // cleanup
     if(app->detected) {
-        ssd1306_scroll_stop(&app->oled);
-        ssd1306_clear(&app->oled);
-        ssd1306_flush(&app->oled);
-        ssd1306_power(&app->oled, false);
+        sh1106_scroll_stop(&app->oled);
+        sh1106_clear(&app->oled);
+        sh1106_flush(&app->oled);
+        sh1106_power(&app->oled, false);
     }
 
     gui_remove_view_port(gui, vp);
