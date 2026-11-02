@@ -241,9 +241,12 @@ void ssd1306_set_vcomh(SSD1306* d, uint8_t level) {
     ssd1306_cmd2(d, 0xDB, level);
 }
 
+
 void ssd1306_set_charge_pump(SSD1306* d, bool enable) {
-    ssd1306_cmd2(d, 0x8D, enable ? 0x14 : 0x10);
+    // SH1106 DC-DC converter control
+    ssd1306_cmd2(d, 0xAD, enable ? 0x8B : 0x8A);
 }
+
 
 // Scrolling
 
