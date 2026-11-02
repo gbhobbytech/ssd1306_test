@@ -137,49 +137,65 @@ bool ssd1306_init(SSD1306* d, uint8_t addr) {
 
     if(!ssd1306_detect(addr)) return false;
 
-    ssd1306_cmd(d, 0xAE);       // display off
-    ssd1306_cmd2(d, 0xD5, 0x80); // clock: default
-    ssd1306_cmd2(d, 0xA8, 0x3F); // mux ratio: 64
-    ssd1306_cmd2(d, 0xD3, 0x00); // display offset: 0
-    ssd1306_cmd(d, 0x40);        // start line: 0
-    ssd1306_cmd2(d, 0x8D, 0x14); // charge pump: enable
-    ssd1306_cmd2(d, 0x20, 0x00); // addressing: horizontal
-    ssd1306_cmd(d, 0xA1);        // segment remap: col127=SEG0
-    ssd1306_cmd(d, 0xC8);        // COM scan: remapped
-    ssd1306_cmd2(d, 0xDA, 0x12); // COM pins: alternative
-    ssd1306_cmd2(d, 0x81, 0xCF); // contrast: 207
-    ssd1306_cmd2(d, 0xD9, 0xF1); // precharge: phase1=1, phase2=15
-    ssd1306_cmd2(d, 0xDB, 0x40); // VCOMH: ~0.77 Vcc
-    ssd1306_cmd(d, 0xA4);        // display from RAM
-    ssd1306_cmd(d, 0xA6);        // normal (not inverted)
-    ssd1306_cmd(d, 0x2E);        // deactivate scroll
+    // SH1106 128x64 initialisation
+    ssd1306_cmd(d, 0xAE);           // Display off
+    ssd1306_cmd2(d, 0xD5, 0x80);    // Clock frequency
+    ssd1306_cmd2(d, 0xA8, 0x3F);    // Multiplex 64
+    ssd1306_cmd2(d, 0xD3, 0x00);    // Display offset
+    ssd1306_cmd(d, 0x40);           // Start line 0
+
+    // SH1106 DC-DC converter
+    ssd1306_cmd2(d, 0xAD, 0x8B);
+
+    ssd1306_cmd(d, 0xA1);           // Segment remap
+    ssd1306_cmd(d, 0xC8);           // COM scan direction
+    ssd1306_cmd2(d, 0xDA, 0x12);    // COM configuration
+    ssd1306_cmd2(d, 0x81, 0x7F);    // Contrast
+    ssd1306_cmd2(d, 0xD9, 0x22);    // Precharge
+    ssd1306_cmd2(d, 0xDB, 0x35);    // VCOM level
+    ssd1306_cmd(d, 0xA4);           // Display RAM contents
+    ssd1306_cmd(d, 0xA6);           // Normal display
 
     ssd1306_clear(d);
     ssd1306_flush(d);
 
-    ssd1306_cmd(d, 0xAF);       // display on
+    ssd1306_cmd(d, 0xAF);           // Display on
     d->initialized = true;
     return true;
 }
+
 
 void ssd1306_power(SSD1306* d, bool on) {
     ssd1306_cmd(d, on ? 0xAF : 0xAE);
 }
 
-void ssd1306_flush(SSD1306* d) {
-    // set column range 0-127
-    cmd3(d, 0x21, 0x00, 0x7F);
-    // set page range 0-7
-    cmd3(d, 0x22, 0x00, 0x07);
 
-    // send buffer page by page (129 bytes each: 1 control + 128 data)
-    uint8_t page_buf[129];
-    page_buf[0] = 0x40; // data control byte
-    for(uint8_t p = 0; p < SSD1306_PAGES; p++) {
-        memcpy(&page_buf[1], &d->buffer[p * SSD1306_WIDTH], SSD1306_WIDTH);
-        i2c_send(d, page_buf, 129);
+void ssd1306_flush(SSD1306* d) {
+    // Typical SH1106 visible-area offset
+    const uint8_t column_offset = 2;
+
+    uint8_t page_buf[SSD1306_WIDTH + 1];
+    page_buf[0] = 0x40; // I2C data control byte
+
+    for(uint8_t page = 0; page < SSD1306_PAGES; page++) {
+        // Select SH1106 page
+        ssd1306_cmd(d, 0xB0 | page);
+
+        // Set column start position
+        ssd1306_cmd(d, 0x00 | (column_offset & 0x0F));
+        ssd1306_cmd(d, 0x10 | (column_offset >> 4));
+
+        // Copy one page from framebuffer
+        memcpy(
+            &page_buf[1],
+            &d->buffer[page * SSD1306_WIDTH],
+            SSD1306_WIDTH);
+
+        // Transfer 128 display bytes
+        i2c_send(d, page_buf, sizeof(page_buf));
     }
 }
+
 
 void ssd1306_set_contrast(SSD1306* d, uint8_t val) {
     ssd1306_cmd2(d, 0x81, val);
