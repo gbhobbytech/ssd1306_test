@@ -103,7 +103,7 @@ typedef struct {
     FuriMutex* mutex;
 } App;
 
-#define PLANT_SAVE_PATH EXT_PATH("apps_data/ssd1306_test/ssd1306_test.sav")
+#define PLANT_SAVE_PATH EXT_PATH("apps_data/gbhobbytech_sh1106_test/plant.sav")
 #define PLANT_SAVE_MAGIC 0xB07A81C5
 
 typedef struct {
@@ -137,7 +137,7 @@ static void save_plant_state(App* app) {
     
     // Ensure save directory exists
     storage_common_mkdir(storage, EXT_PATH("apps_data"));
-    storage_common_mkdir(storage, EXT_PATH("apps_data/ssd1306_test"));
+    storage_common_mkdir(storage, EXT_PATH("apps_data/gbhobbytech_sh1106_test"));
     
     if(storage_file_open(file, PLANT_SAVE_PATH, FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
         PlantSaveState state;
@@ -2228,7 +2228,6 @@ int32_t sh1106_app_main(void* p) {
 
     // cleanup
     if(app->detected) {
-        sh1106_scroll_stop(&app->oled);
         sh1106_clear(&app->oled);
         sh1106_flush(&app->oled);
         sh1106_power(&app->oled, false);
