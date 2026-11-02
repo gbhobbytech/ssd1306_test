@@ -118,10 +118,6 @@ bool ssd1306_cmd2(SSD1306* d, uint8_t cmd, uint8_t arg) {
     return i2c_send(d, buf, 3);
 }
 
-static bool cmd3(SSD1306* d, uint8_t cmd, uint8_t a, uint8_t b) {
-    uint8_t buf[4] = {0x00, cmd, a, b};
-    return i2c_send(d, buf, 4);
-}
 
 bool ssd1306_detect(uint8_t addr) {
     furi_hal_i2c_acquire(&furi_hal_i2c_handle_external);
@@ -248,57 +244,65 @@ void ssd1306_set_charge_pump(SSD1306* d, bool enable) {
 }
 
 
+void ssd1306_scroll_step(SSD1306* d, bool left) {
+    // Rotate each 128-byte page by one pixel column.
+    // No unsupported controller commands are sent.
+
+    for(uint8_t page = 0; page < SSD1306_PAGES; page++) {
+        uint8_t* row = &d->buffer[page * SSD1306_WIDTH];
+        uint8_t edge;
+
+        if(left) {
+            edge = row[0];
+            memmove(row, row + 1, SSD1306_WIDTH - 1);
+            row[SSD1306_WIDTH - 1] = edge;
+        } else {
+            edge = row[SSD1306_WIDTH - 1];
+            memmove(row + 1, row, SSD1306_WIDTH - 1);
+            row[0] = edge;
+        }
+    }
+
+    ssd1306_flush(d);
+}
+
 // Scrolling
 
-void ssd1306_scroll_h(SSD1306* d, bool left, uint8_t start_page, uint8_t end_page, uint8_t speed) {
-    ssd1306_cmd(d, 0x2E); // deactivate scroll
-    uint8_t freq = (speed & 0x07) | 0x08; // bit3=1 per command table
-    uint8_t buf[9] = {
-        0x00, (uint8_t)(left ? 0x27 : 0x26), 0x00, start_page & 0x07,
-        freq, end_page & 0x07, 0x00, 0xFF, 0x2F}; // activate in same transaction
-    i2c_send(d, buf, 9);
+
+void ssd1306_scroll_h(
+    SSD1306* d, bool left,
+    uint8_t start_page, uint8_t end_page,
+    uint8_t speed) {
+    UNUSED(d);
+    UNUSED(left);
+    UNUSED(start_page);
+    UNUSED(end_page);
+    UNUSED(speed);
 }
 
-void ssd1306_scroll_hv(SSD1306* d, bool left, uint8_t start_page, uint8_t end_page, uint8_t speed, uint8_t v_offset) {
-    ssd1306_cmd(d, 0x2E); // deactivate scroll
-
-    // Set vertical scroll area: top fixed=0, scroll=64 rows (POR default)
-    cmd3(d, 0xA3, 0x00, SSD1306_HEIGHT);
-
-    // Send 0x29/0x2A setup + 0x2F activate in one consecutive sequence
-    // per Figure 10-10 in the datasheet
-    uint8_t freq = speed & 0x07;
-    uint8_t buf[8] = {
-        0x00,                           // I2C control: command mode
-        (uint8_t)(left ? 0x2A : 0x29),  // 0x29=V+H right, 0x2A=V+H left
-        0x00,                           // dummy
-        start_page & 0x07,              // start page
-        freq,                           // interval (bit3=0)
-        end_page & 0x07,                // end page
-        v_offset & 0x3F,                // vertical offset
-        0x2F                            // activate scroll (same transaction)
-    };
-    i2c_send(d, buf, 8);
+void ssd1306_scroll_hv(
+    SSD1306* d, bool left,
+    uint8_t start_page, uint8_t end_page,
+    uint8_t speed, uint8_t v_offset) {
+    UNUSED(d);
+    UNUSED(left);
+    UNUSED(start_page);
+    UNUSED(end_page);
+    UNUSED(speed);
+    UNUSED(v_offset);
 }
+
 
 void ssd1306_scroll_stop(SSD1306* d) {
-    ssd1306_cmd(d, 0x2E);
+    UNUSED(d);
 }
-
 // Fade / Blink (command 0x23)
 // mode: 0=off, 1=fade slow, 2=fade fast, 3=blink slow, 4=blink fast
 // Byte format: bits[7:6]=mode(2=fade,3=blink), bits[5:4]=interval, bits[3:0]=step
-void ssd1306_set_fade_blink(SSD1306* d, uint8_t mode) {
-    static const uint8_t fade_bytes[] = {
-        0x00,  // off
-        0xB4,  // fade out: interval=3(64f), step=4
-        0x92,  // fade out: interval=1(16f), step=2
-        0xF4,  // blink:    interval=3(64f), step=4
-        0xC2,  // blink:    interval=0(8f),  step=2
-    };
-    if(mode < 5) {
-        ssd1306_cmd2(d, 0x23, fade_bytes[mode]);
-    }
+void ssd1306_set_fade_blink(
+    SSD1306* d, uint8_t mode) {
+    UNUSED(d);
+    UNUSED(mode);
 }
 
 // Drawing

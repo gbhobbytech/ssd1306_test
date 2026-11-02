@@ -51,6 +51,9 @@ typedef struct {
     // scrolling
     int scroll_menu_idx;
     uint8_t scroll_speed;
+    bool scroll_active;
+    bool scroll_left;
+    uint32_t scroll_last_tick;
 
     // variant
     uint8_t yellow_bar_height; // 0 or 16
@@ -1198,7 +1201,7 @@ static void draw_callback(Canvas* canvas, void* ctx) {
                 canvas_set_color(canvas, ColorWhite);
             }
             char line[40];
-            if(idx == 5) {
+            if(idx == 3) {
                 snprintf(
                     line,
                     sizeof(line),
@@ -1751,46 +1754,69 @@ static void handle_commands(App* app, InputEvent* ev) {
     }
 }
 
+
 static void handle_scrolling(App* app, InputEvent* ev) {
-    if(ev->type != InputTypePress && ev->type != InputTypeRepeat) return;
+    if(ev->type != InputTypePress &&
+       ev->type != InputTypeRepeat) return;
+
     switch(ev->key) {
     case InputKeyUp:
         if(app->cursor > 0) app->cursor--;
         break;
+
     case InputKeyDown:
-        if(app->cursor < SCROLL_COUNT - 1) app->cursor++;
+        if(app->cursor < SCROLL_COUNT - 1)
+            app->cursor++;
         break;
+
     case InputKeyOk:
         switch(app->cursor) {
         case 0:
-            ssd1306_scroll_h(&app->oled, false, 0, 7, app->scroll_speed);
+            app->scroll_left = false;
+            app->scroll_active = true;
+            app->scroll_last_tick = furi_get_tick();
             break;
+
         case 1:
-            ssd1306_scroll_h(&app->oled, true, 0, 7, app->scroll_speed);
+            app->scroll_left = true;
+            app->scroll_active = true;
+            app->scroll_last_tick = furi_get_tick();
             break;
+
         case 2:
-            ssd1306_scroll_stop(&app->oled);
+            app->scroll_active = false;
             break;
+
         case 3:
-            app->scroll_speed = (app->scroll_speed + 1) & 0x07;
+            app->scroll_speed =
+                (app->scroll_speed + 1) & 0x07;
             break;
         }
         break;
+
     case InputKeyLeft:
-        if(app->cursor == 3 && app->scroll_speed > 0) app->scroll_speed--;
+        if(app->cursor == 3 &&
+           app->scroll_speed > 0)
+            app->scroll_speed--;
         break;
+
     case InputKeyRight:
-        if(app->cursor == 3 && app->scroll_speed < 7) app->scroll_speed++;
+        if(app->cursor == 3 &&
+           app->scroll_speed < 7)
+            app->scroll_speed++;
         break;
+
     case InputKeyBack:
-        ssd1306_scroll_stop(&app->oled);
+        app->scroll_active = false;
         app->scene = SceneMainMenu;
         app->cursor = 4;
         break;
+
     default:
         break;
     }
 }
+
 
 static void handle_info(App* app, InputEvent* ev) {
     if(ev->type != InputTypePress) return;
@@ -1854,7 +1880,7 @@ int32_t ssd1306_app_main(void* p) {
 
     InputEvent ev;
     while(app->running) {
-        if(furi_message_queue_get(queue, &ev, 200) == FuriStatusOk) {
+        if(furi_message_queue_get(queue, &ev, 20) == FuriStatusOk) {
             furi_mutex_acquire(app->mutex, FuriWaitForever);
 
             if(!app->detected) {
@@ -1913,6 +1939,35 @@ int32_t ssd1306_app_main(void* p) {
             furi_mutex_release(app->mutex);
             view_port_update(vp);
         }
+
+            // SH1106 software scrolling
+            if(app->detected &&
+            app->scene == SceneScrolling &&
+            app->scroll_active) {
+
+                uint32_t now = furi_get_tick();
+
+                // Speed 0 = slowest, 7 = fastest
+                uint32_t interval_ms =
+                    220 - (app->scroll_speed * 25);
+
+                uint32_t interval_ticks =
+                    furi_ms_to_ticks(interval_ms);
+
+                if((uint32_t)(now - app->scroll_last_tick)
+                >= interval_ticks) {
+
+                    furi_mutex_acquire(
+                        app->mutex, FuriWaitForever);
+
+                    ssd1306_scroll_step(
+                        &app->oled, app->scroll_left);
+
+                    app->scroll_last_tick = now;
+
+                    furi_mutex_release(app->mutex);
+                }
+            }
 
         // periodic clock update (on message queue timeout, ~5 times/sec)
         if(app->detected && app->scene == SceneClock) {

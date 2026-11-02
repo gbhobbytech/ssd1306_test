@@ -45,6 +45,7 @@ void ssd1306_set_charge_pump(SSD1306* d, bool enable);
 // Scrolling
 void ssd1306_scroll_h(SSD1306* d, bool left, uint8_t start_page, uint8_t end_page, uint8_t speed);
 void ssd1306_scroll_hv(SSD1306* d, bool left, uint8_t start_page, uint8_t end_page, uint8_t speed, uint8_t v_offset);
+void ssd1306_scroll_step(SSD1306* d, bool left);
 void ssd1306_scroll_stop(SSD1306* d);
 
 // Fade / Blink
