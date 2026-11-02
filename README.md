@@ -1,195 +1,143 @@
-# SSD1306 Test - Flipper Zero OLED Diagnostic Tool
+# SH1106 Test for Flipper Zero
 
-A Flipper Zero application for testing and diagnosing external SSD1306-based 128x64 I2C OLED displays. Supports both monochrome and yellow-bar (dual-color) display variants. Built for Momentum firmware.
+An OLED diagnostic application for Flipper Zero, designed to
+test external SH1106 128x64 I2C displays.
+
+Adapted from SSD1306 Test by Martin Bogomolni (martinbogo).
+SH1106 adaptation maintained by gbhobbytech.
 
 ## Features
 
-**Clock + Status Board**
-- Large 7-segment style clock (HH:MM) with blinking colon and seconds display
-- Status bar with battery level, charging indicator, day of week, and date
-- Yellow-bar aware layout: on dual-color displays, the status bar renders as dark text on a filled yellow background; on mono displays, a clean line-separated header
-- Shows Flipper device name at the bottom
-- Updates every second automatically
+- Ten display test patterns
+- Full-screen pixel on/off tests
+- Checkerboard, lines, borders and gradients
+- Text and geometric shape rendering
+- Adjustable display contrast
+- Display inversion and power control
+- Horizontal and vertical display flipping
+- Software horizontal scrolling with adjustable speed
+- Software fade and blink effects
+- Start-line adjustment
+- I2C address detection and scanner
+- Pixel Walk diagnostic
+- FPS benchmark
+- Clock and Flipper status display
+- Botanical Obligation mini-application
 
-**Test Patterns**
-- All White / All Black (dead pixel detection)
-- Checkerboard, Horizontal Lines, Vertical Lines
-- Border (edge pixel verification)
-- Color Zone Test (highlights the yellow/blue boundary on dual-color displays)
-- Page Fill (fills each page sequentially to verify page addressing)
-- Dithered Gradient
-- Shapes and Text rendering
+## Supported Hardware
 
-**Brightness Control**
-- Adjustable contrast from 0 to 255 with real-time preview
+Designed for SH1106-based 128x64 OLED modules using I2C.
 
-**Display Commands**
-- Invert display
-- Horizontal and vertical flip
-- Force all pixels on (bypasses RAM)
-- Display power on/off
-- Variant toggle (monochrome vs yellow-bar)
+Supported display addresses:
+- 0x3C
+- 0x3D
 
-**Hardware Scrolling**
-- Horizontal scroll (left/right)
-- Diagonal scroll (vertical + horizontal)
-- Adjustable scroll speed (8 levels)
+The SH1106 controller has 132 display RAM columns.
+This application uses page-based addressing and a two-column
+offset for the typical 128-pixel visible area.
 
-**Display Info**
-- Auto-detects I2C address (0x3C and 0x3D)
-- Live connection status
-- Display variant indicator
+Horizontal mirroring is implemented in software for reliable
+operation with the tested module.
 
 ## Wiring
 
-Connect the SSD1306 OLED to the Flipper Zero GPIO header:
+Connect the OLED to the Flipper Zero GPIO header.
 
-| OLED Pin | Flipper Zero Pin | GPIO Header |
-|----------|-----------------|-------------|
-| GND      | GND             | Pin 18      |
-| VCC      | 3.3V            | Pin 9       |
-| SCL      | C0              | Pin 16      |
-| SDA      | C1              | Pin 15      |
+| OLED | Flipper Zero | GPIO pin |
+|------|--------------|----------|
+| GND  | GND          | 18       |
+| VCC  | 3.3V         | 9        |
+| SCL  | C0           | 16       |
+| SDA  | C1           | 15       |
 
-**Note:** Use the 3.3V pin, not 5V. The Flipper Zero GPIO is 3.3V logic. Most SSD1306 modules work fine at 3.3V. If your module requires 5V for its power rail, you may use the 5V pin (pin 1) for VCC only, but the I2C data lines (SCL/SDA) must remain 3.3V-tolerant.
+IMPORTANT: Flipper Zero GPIO uses 3.3V logic.
+
+Confirm the voltage requirements of your particular OLED module.
+Do not connect I2C lines pulled up to 5V directly to the Flipper.
 
 ## Building
 
-This project uses [ufbt](https://github.com/flipperdevices/flipperzero-ufbt) (micro Flipper Build Tool) to compile without needing the full firmware source tree. ufbt downloads the SDK and ARM cross-compiler automatically.
+Requires the Flipper Zero uFBT build environment.
 
-### macOS
+Clone the repository:
 
-Requires Python 3 and pip. Install via [Homebrew](https://brew.sh/) if needed (`brew install python`).
+    git clone https://github.com/gbhobbytech/ssd1306_test.git
+    cd ssd1306_test
+    git checkout sh1106-development
 
-```sh
-# Install ufbt
-pip3 install ufbt
+Select the official firmware SDK:
 
-# Clone and enter the repo
-git clone https://github.com/martinbogo/ssd1306_test.git
-cd ssd1306_test
+    ufbt update --channel=release
 
-# Pull the Momentum firmware SDK
-make setup
+Build:
 
-# Build
-make
-```
+    ufbt
 
-The compiled FAP will be at `dist/ssd1306_test.fap`.
+Build and launch on a connected Flipper Zero:
 
-### Linux (Debian/Ubuntu)
+    ufbt launch
 
-```sh
-# Install prerequisites
-sudo apt update
-sudo apt install -y python3 python3-pip git
+Close qFlipper or other software using the serial connection
+before launching through uFBT.
 
-# Install ufbt
-pip3 install ufbt
+## Testing
 
-# Clone and enter the repo
-git clone https://github.com/martinbogo/ssd1306_test.git
-cd ssd1306_test
+The SH1106 adaptation has been tested on physical hardware.
 
-# Pull the Momentum firmware SDK
-make setup
+Validated functionality includes:
+- Initialisation and page addressing
+- All ten display patterns
+- Horizontal and vertical orientation
+- Contrast and inversion
+- Display on/off
+- Software scrolling and speed adjustment
+- Software fade and blink
+- Pixel Walk and FPS benchmark
+- I2C scanning
+- Clock and status display
+- Exit and relaunch
+- External display disconnection and reconnection
 
-# Build
-make
-```
+Testing on additional SH1106 modules is welcome.
 
-If `pip3 install` warns about the PATH, either add `~/.local/bin` to your PATH or use `pipx install ufbt` instead.
+## Application Identity
 
-For USB access to the Flipper without root, add a udev rule:
+Name: SH1106 Test
+App ID: gbhobbytech_sh1106_test
+Category: GPIO
+Maintainer: gbhobbytech
 
-```sh
-sudo tee /etc/udev/rules.d/42-flipperzero.rules << 'UDEV'
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="5740", TAG+="uaccess"
-UDEV
-sudo udevadm control --reload-rules && sudo udevadm trigger
-```
+## Original Project and Acknowledgements
 
-### Windows
+SH1106 Test is a derivative of SSD1306 Test, originally
+developed by Martin Bogomolni (martinbogo).
 
-Requires Python 3. Download from [python.org](https://www.python.org/downloads/) and ensure "Add Python to PATH" is checked during install.
+Original source:
+https://github.com/martinbogo/ssd1306_test
 
-```powershell
-# Install ufbt
-pip install ufbt
+This adaptation retains the original application's design
+and diagnostic features while implementing SH1106-specific
+display initialisation, page addressing, horizontal mirroring,
+software scrolling and software fade/blink.
 
-# Clone and enter the repo
-git clone https://github.com/martinbogo/ssd1306_test.git
-cd ssd1306_test
+Thanks to Martin Bogomolni for making the original project
+available to the community.
 
-# Pull the Momentum firmware SDK
-ufbt update --index-url=https://up.momentum-fw.dev/firmware/directory.json
+## Licensing
 
-# Build
-ufbt
-```
+The original project's README identifies its licence as MIT.
 
-On Windows the Makefile requires `make` (available via [chocolatey](https://chocolatey.org/): `choco install make`, or via MSYS2/Git Bash). Alternatively, run `ufbt` directly as shown above.
+The original repository did not include a standalone LICENSE
+file when this adaptation was prepared.
 
-## Deploying to the Flipper Zero
+The complete applicable copyright and licence notice must be
+confirmed and retained before distributing the derivative.
 
-### USB deploy (all platforms)
+See the original project for licensing information.
 
-Connect your Flipper Zero via USB. Close any other application using the serial port (qFlipper, Flipper Lab, serial terminals).
+## Status
 
-```sh
-# macOS / Linux
-make launch
+Version 0.5 - Hardware-validated release candidate.
 
-# Windows (or any platform without make)
-ufbt launch
-```
-
-This uploads the FAP and immediately launches it on the Flipper.
-
-### Manual SD card install
-
-Copy `dist/ssd1306_test.fap` to your Flipper Zero's SD card:
-
-```
-SD Card/apps/GPIO/ssd1306_test.fap
-```
-
-Then navigate to **Apps > GPIO > SSD1306 Test** on the Flipper.
-
-## VSCode Integration
-
-To set up full IntelliSense (autocomplete, go-to-definition into Flipper SDK headers):
-
-```sh
-make vscode
-```
-
-This generates `.vscode/c_cpp_properties.json` and `compile_commands.json` pointing at the Momentum SDK include paths and the ARM cross-compiler.
-
-## Makefile Targets
-
-| Target       | Description                                |
-|--------------|--------------------------------------------|
-| `make`       | Build the FAP                              |
-| `make launch`| Build and deploy to connected Flipper      |
-| `make clean` | Remove build artifacts                     |
-| `make setup` | Install ufbt and pull Momentum SDK         |
-| `make update`| Update Momentum SDK to latest              |
-| `make vscode`| Regenerate VSCode IntelliSense config      |
-| `make lint`  | Lint source files                          |
-| `make format`| Auto-format source files                   |
-
-## Using the Official Flipper SDK
-
-If you prefer to build against the official Flipper Zero firmware instead of Momentum, replace the SDK URL:
-
-```sh
-ufbt update --channel=release
-```
-
-The app uses standard Flipper Zero SDK APIs and is compatible with both firmwares.
-
-## License
-
-MIT
+Documentation and official Flipper Application Catalog
+submission preparation are in progress.
