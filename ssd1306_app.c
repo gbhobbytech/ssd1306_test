@@ -47,6 +47,10 @@ typedef struct {
     bool cmd_power;
     uint8_t cmd_start_line;
     uint8_t cmd_fade_mode;
+    uint32_t fade_last_tick;
+    uint8_t fade_step;
+    bool fade_down;
+    bool blink_visible;
 
     // scrolling
     int scroll_menu_idx;
@@ -1678,6 +1682,76 @@ static void handle_brightness(App* app, InputEvent* ev) {
     }
 }
 
+static void sh1106_set_effect_mode(App* app, uint8_t mode) {
+    // Restore the normal state before changing modes.
+    ssd1306_set_contrast(&app->oled, app->brightness);
+    ssd1306_power(&app->oled, !app->cmd_power);
+
+    app->cmd_fade_mode = mode;
+    app->fade_last_tick = furi_get_tick();
+    app->fade_step = 20;
+    app->fade_down = true;
+    app->blink_visible = true;
+}
+
+static void sh1106_update_effect(App* app) {
+    uint8_t mode = app->cmd_fade_mode;
+
+    if(mode == 0 || app->cmd_power) return;
+
+    uint32_t interval_ms;
+
+    switch(mode) {
+    case 1: interval_ms = 80; break;
+    case 2: interval_ms = 30; break;
+    case 3: interval_ms = 600; break;
+    case 4: interval_ms = 200; break;
+    default: return;
+    }
+
+    uint32_t now = furi_get_tick();
+
+    if((uint32_t)(now - app->fade_last_tick) <
+       furi_ms_to_ticks(interval_ms)) {
+        return;
+    }
+
+    app->fade_last_tick = now;
+
+    if(mode == 1 || mode == 2) {
+        // Cycle between zero and the selected brightness.
+        if(app->fade_down) {
+            if(app->fade_step > 0) {
+                app->fade_step--;
+            } else {
+                app->fade_down = false;
+                app->fade_step++;
+            }
+        } else {
+            if(app->fade_step < 20) {
+                app->fade_step++;
+            } else {
+                app->fade_down = true;
+                app->fade_step--;
+            }
+        }
+
+        uint8_t contrast =
+            ((uint16_t)app->brightness *
+             app->fade_step) / 20;
+
+        ssd1306_set_contrast(&app->oled, contrast);
+
+    } else {
+        // Toggle visibility through the SH1106
+        // display on/off command.
+        app->blink_visible = !app->blink_visible;
+
+        ssd1306_power(
+            &app->oled, app->blink_visible);
+    }
+}
+
 static void handle_commands(App* app, InputEvent* ev) {
     if(ev->type != InputTypePress && ev->type != InputTypeRepeat) return;
     switch(ev->key) {
@@ -1706,6 +1780,7 @@ static void handle_commands(App* app, InputEvent* ev) {
             ssd1306_set_all_on(&app->oled, app->cmd_all_on);
             break;
         case 4:
+            sh1106_set_effect_mode(app, 0);
             app->cmd_power = !app->cmd_power;
             ssd1306_power(&app->oled, !app->cmd_power);
             break;
@@ -1718,8 +1793,8 @@ static void handle_commands(App* app, InputEvent* ev) {
             ssd1306_set_start_line(&app->oled, app->cmd_start_line);
             break;
         case 7:
-            app->cmd_fade_mode = (app->cmd_fade_mode + 1) % 5;
-            ssd1306_set_fade_blink(&app->oled, app->cmd_fade_mode);
+            sh1106_set_effect_mode(
+                app, (app->cmd_fade_mode + 1) % 5);
             break;
         }
         break;
@@ -1733,7 +1808,7 @@ static void handle_commands(App* app, InputEvent* ev) {
         if(app->cursor == 6)
             ssd1306_set_start_line(&app->oled, app->cmd_start_line);
         else if(app->cursor == 7)
-            ssd1306_set_fade_blink(&app->oled, app->cmd_fade_mode);
+            sh1106_set_effect_mode(app, app->cmd_fade_mode);
         break;
     case InputKeyRight:
         if(app->cursor == 6)
@@ -1743,12 +1818,13 @@ static void handle_commands(App* app, InputEvent* ev) {
         if(app->cursor == 6)
             ssd1306_set_start_line(&app->oled, app->cmd_start_line);
         else if(app->cursor == 7)
-            ssd1306_set_fade_blink(&app->oled, app->cmd_fade_mode);
+            sh1106_set_effect_mode(app, app->cmd_fade_mode);
         break;
     case InputKeyBack:
-        app->scene = SceneMainMenu;
-        app->cursor = 3;
-        break;
+    sh1106_set_effect_mode(app, 0);
+    app->scene = SceneMainMenu;
+    app->cursor = 3;
+    break;
     default:
         break;
     }
@@ -1967,6 +2043,19 @@ int32_t ssd1306_app_main(void* p) {
 
                     furi_mutex_release(app->mutex);
                 }
+            }
+
+            // SH1106 software fade and blink
+            if(app->detected &&
+            app->scene == SceneCommands &&
+            app->cmd_fade_mode != 0) {
+
+                furi_mutex_acquire(
+                    app->mutex, FuriWaitForever);
+
+                sh1106_update_effect(app);
+
+                furi_mutex_release(app->mutex);
             }
 
         // periodic clock update (on message queue timeout, ~5 times/sec)
